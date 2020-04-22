@@ -9,6 +9,13 @@
 public protocol AnyStoreSubscriber: AnyObject {
     // swiftlint:disable:next identifier_name
     func _newState(state: Any)
+
+    /// Subscribers may indicate if they require a state update for the provided action. 
+    func wantsNewState(_ action: Action) -> Bool
+}
+
+extension AnyStoreSubscriber {
+  public func wantsNewState(_ action: Action) -> Bool { return true }
 }
 
 public protocol StoreSubscriber: AnyStoreSubscriber {

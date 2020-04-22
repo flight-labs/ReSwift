@@ -20,11 +20,13 @@ open class Store<State: StateType>: StoreType {
     private(set) public var state: State! {
         didSet {
             subscriptions.forEach {
-                if $0.subscriber == nil {
-                    subscriptions.remove($0)
-                } else {
-                    $0.newValues(oldState: oldValue, newState: state)
-                }
+              guard let subscriber = $0.subscriber else { subscriptions.remove($0); return }
+
+              if let lastAction = lastAction, subscriber.wantsNewState(lastAction) {
+                $0.newValues(oldState: oldValue, newState: state)
+              } else if lastAction == nil {
+                $0.newValues(oldState: oldValue, newState: state)
+              }
             }
         }
     }
@@ -36,6 +38,8 @@ open class Store<State: StateType>: StoreType {
     var subscriptions: Set<SubscriptionType> = []
 
     private var isDispatching = AtomicBool()
+
+    private var lastAction: Action? = nil
 
     /// Indicates if new subscriptions attempt to apply `skipRepeats` 
     /// by default.
@@ -167,6 +171,7 @@ open class Store<State: StateType>: StoreType {
 
         isDispatching.value = true
         let newState = reducer(action, state)
+        lastAction = action
         isDispatching.value = false
 
         state = newState
