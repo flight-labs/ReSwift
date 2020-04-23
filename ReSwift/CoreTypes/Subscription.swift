@@ -20,25 +20,9 @@ class SubscriptionBox<State>: Hashable {
     weak var subscriber: AnyStoreSubscriber?
     private let objectIdentifier: ObjectIdentifier
 
-    #if swift(>=5.0)
-        func hash(into hasher: inout Hasher) {
-            hasher.combine(self.objectIdentifier)
-        }
-    #elseif swift(>=4.2)
-        #if compiler(>=5.0)
-            func hash(into hasher: inout Hasher) {
-                hasher.combine(self.objectIdentifier)
-            }
-        #else
-            var hashValue: Int {
-                return self.objectIdentifier.hashValue
-            }
-        #endif
-    #else
-        var hashValue: Int {
-            return self.objectIdentifier.hashValue
-        }
-    #endif
+    func hash(into hasher: inout Hasher) {
+      hasher.combine(self.objectIdentifier)
+    }
 
     init<T>(
         originalSubscription: Subscription<State>,
@@ -81,14 +65,17 @@ class SubscriptionBox<State>: Hashable {
 /// The subscription acts as a very-light weight signal/observable that you might know from
 /// reactive programming libraries.
 public class Subscription<State> {
+    private var lastState: Any?
 
     private func _select<Substate>(
         _ selector: @escaping (State) -> Substate
         ) -> Subscription<Substate>
     {
         return Subscription<Substate> { sink in
-            self.observer = { oldState, newState in
-                sink(oldState.map(selector) ?? nil, selector(newState))
+            self.observer = { [weak self] oldState, newState in
+                guard let strongSelf = self else { return }
+                sink(strongSelf.lastState as? Substate ?? oldState.map(selector) ?? nil, selector(newState))
+                strongSelf.lastState = newState
             }
         }
     }
