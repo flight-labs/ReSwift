@@ -22,9 +22,10 @@ open class Store<State: StateType>: StoreType {
             subscriptions.forEach {
               guard let subscriber = $0.subscriber else { subscriptions.remove($0); return }
 
-              if let lastAction = lastAction, subscriber.wantsNewState(lastAction) {
+              // If we have a current action, ensure the subscriber wants a state update
+              if let currentAction = currentAction, subscriber.wantsNewState(currentAction) {
                 $0.newValues(oldState: oldValue, newState: state)
-              } else if lastAction == nil {
+              } else if currentAction == nil {
                 $0.newValues(oldState: oldValue, newState: state)
               }
             }
@@ -39,7 +40,8 @@ open class Store<State: StateType>: StoreType {
 
     private var isDispatching = AtomicBool()
 
-    private var lastAction: Action? = nil
+    /// The action currently being dispatched. We pass this to `AnyStoreSubcriber.wantsNewState()`
+    private var currentAction: Action? = nil
 
     /// Indicates if new subscriptions attempt to apply `skipRepeats` 
     /// by default.
@@ -169,12 +171,13 @@ open class Store<State: StateType>: StoreType {
             )
         }
 
+        currentAction = action
         isDispatching.value = true
         let newState = reducer(action, state)
-        lastAction = action
         isDispatching.value = false
 
         state = newState
+        currentAction = nil
     }
 
     open func dispatch(_ action: Action) {
